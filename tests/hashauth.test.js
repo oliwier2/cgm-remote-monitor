@@ -6,13 +6,34 @@ var read = require('fs').readFileSync;
 var serverSettings = require('./fixtures/default-server-settings');
 
 describe('hashauth', function ( ) {
+  this.timeout(50000); // TODO: see why this test takes longer on Travis to complete
+
   var self = this;
+  var headless = require('./fixtures/headless')(benv, this);
+
+  before(function (done) {
+    done( );
+  });
+
+  after(function (done) {
+    done( );
+  });
+
+  beforeEach(function (done) {
+    headless.setup({mockAjax: true}, done);
+  });
+
+  afterEach(function (done) {
+    headless.teardown( );
+    done( );
+  });
+  /*
   before(function (done) {
     benv.setup(function() {
       self.$ = require('jquery');
       self.$.localStorage = require('./fixtures/localstorage');
 
-      self.$.fn.tipsy = function mockTipsy ( ) { };
+      self.$.fn.tooltip = function mockTooltip ( ) { };
 
       var indexHtml = read(__dirname + '/../static/index.html', 'utf8');
       self.$('body').html(indexHtml);
@@ -41,11 +62,11 @@ describe('hashauth', function ( ) {
     benv.teardown();
     done();
   });
+  */
 
   it ('should make module unauthorized', function () {
-    var plugins = require('../lib/plugins/')().registerClientDefaults();
     var client = require('../lib/client');
-    var hashauth = require('../lib/hashauth');
+    var hashauth = require('../lib/client/hashauth');
     
     hashauth.init(client,$);
     hashauth.verifyAuthentication = function mockVerifyAuthentication(next) { 
@@ -53,18 +74,17 @@ describe('hashauth', function ( ) {
       next(true); 
     };
 
-    client.init(serverSettings, plugins);
+    client.init();
 
-    hashauth.inlineCode().indexOf('Device not authenticated').should.be.greaterThan(0);
+    hashauth.inlineCode().indexOf('Unauthorized').should.be.greaterThan(0);
     hashauth.isAuthenticated().should.equal(false);
     var testnull = (hashauth.hash()===null);
     testnull.should.equal(true);
   });
 
   it ('should make module authorized', function () {
-    var plugins = require('../lib/plugins/')().registerClientDefaults();
     var client = require('../lib/client');
-    var hashauth = require('../lib/hashauth');
+    var hashauth = require('../lib/client/hashauth');
     
     hashauth.init(client,$);
     hashauth.verifyAuthentication = function mockVerifyAuthentication(next) { 
@@ -72,16 +92,15 @@ describe('hashauth', function ( ) {
       next(true); 
     };
 
-    client.init(serverSettings, plugins);
+    client.init();
 
-    hashauth.inlineCode().indexOf('Device authenticated').should.be.greaterThan(0);
+    hashauth.inlineCode().indexOf('Admin authorized').should.be.greaterThan(0);
     hashauth.isAuthenticated().should.equal(true);
   });
 
   it ('should store hash and the remove authentication', function () {
-    var plugins = require('../lib/plugins/')().registerClientDefaults();
     var client = require('../lib/client');
-    var hashauth = require('../lib/hashauth');
+    var hashauth = require('../lib/client/hashauth');
     var localStorage = require('./fixtures/localstorage');   
     
     localStorage.remove('apisecrethash');
@@ -91,8 +110,9 @@ describe('hashauth', function ( ) {
       hashauth.authenticated = true;
       next(true); 
     };
+    hashauth.updateSocketAuth = function mockUpdateSocketAuth() {};
 
-    client.init(serverSettings, plugins);
+    client.init();
 
     hashauth.processSecret('this is my long pass phrase',true);
     
@@ -105,9 +125,8 @@ describe('hashauth', function ( ) {
   });
 
   it ('should not store hash', function () {
-    var plugins = require('../lib/plugins/')().registerClientDefaults();
     var client = require('../lib/client');
-    var hashauth = require('../lib/hashauth');
+    var hashauth = require('../lib/client/hashauth');
     var localStorage = require('./fixtures/localstorage');   
     
     localStorage.remove('apisecrethash');
@@ -118,7 +137,7 @@ describe('hashauth', function ( ) {
       next(true); 
     };
 
-    client.init(serverSettings, plugins);
+    client.init();
 
     hashauth.processSecret('this is my long pass phrase',false);
     
@@ -129,16 +148,15 @@ describe('hashauth', function ( ) {
   });
 
   it ('should report secret too short', function () {
-    var plugins = require('../lib/plugins/')().registerClientDefaults();
     var client = require('../lib/client');
-    var hashauth = require('../lib/hashauth');
+    var hashauth = require('../lib/client/hashauth');
     var localStorage = require('./fixtures/localstorage');   
     
     localStorage.remove('apisecrethash');
 
-    hashauth.init(client,$);
+    hashauth.init(client, self.$);
 
-    client.init(serverSettings, plugins);
+    client.init();
 
     window.alert = function mockConfirm (message) {
       function containsLine (line) {
